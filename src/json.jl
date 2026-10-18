@@ -18,13 +18,19 @@ function FlootyAbstract.save!(backend::JSONBackend, obj::T) where T <: AbstractP
     filepath
 end
 
-function FlootyAbstract.load(backend::JSONBackend, ::Type{T}, id::UUID) where T <: AbstractPersistable
+# `save!` keys the file by interpolating the id, so it already accepted any id;
+# the read/delete halves were typed `::UUID`, which locked out String-keyed
+# persistables (session ids in the PTY layer are strings). Widened to match.
+
+function FlootyAbstract.load(backend::JSONBackend, ::Type{T},
+                             id::Union{UUID,AbstractString}) where T <: AbstractPersistable
     filepath = joinpath(backend.base_path, "$(id).json")
     isfile(filepath) || return nothing
     JSON3.read(read(filepath, String), T)
 end
 
-function FlootyAbstract.delete!(backend::JSONBackend, ::Type{T}, id::UUID) where T <: AbstractPersistable
+function FlootyAbstract.delete!(backend::JSONBackend, ::Type{T},
+                                id::Union{UUID,AbstractString}) where T <: AbstractPersistable
     filepath = joinpath(backend.base_path, "$(id).json")
     isfile(filepath) && rm(filepath)
     nothing
