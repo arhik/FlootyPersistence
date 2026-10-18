@@ -302,17 +302,18 @@ const _SELECT_EVENTS = """
            model, agent, cwd, payload, schema_version
     FROM events"""
 
+# SQLite hands NULL back as `missing` (not `nothing`) through a Row cursor.
+_absent(x) = x === nothing || ismissing(x)
+_opt_string(x) = _absent(x) ? nothing : String(x)
+_opt_bool(x) = _absent(x) ? nothing : Bool(x)
+
 row_to_event(r) = JournalEvent(
     Int64(r.id), Float64(r.ts_wall), Float64(r.ts_mono),
     String(r.session_uid), String(r.terminal_id), String(r.kind), String(r.role),
-    r.content === nothing ? nothing : String(r.content),
-    r.thinking === nothing ? nothing : String(r.thinking),
-    r.tool_name === nothing ? nothing : String(r.tool_name),
-    r.tool_call_id === nothing ? nothing : String(r.tool_call_id),
-    r.ok === nothing ? nothing : Bool(r.ok),
+    _opt_string(r.content), _opt_string(r.thinking),
+    _opt_string(r.tool_name), _opt_string(r.tool_call_id), _opt_bool(r.ok),
     String(r.model), String(r.agent), String(r.cwd),
-    r.payload === nothing ? nothing : String(r.payload),
-    Int16(r.schema_version))
+    _opt_string(r.payload), Int16(r.schema_version))
 
 """
     upcast_row(ev::JournalEvent) -> JournalEvent
@@ -393,7 +394,7 @@ function journal_sessions(j::SQLiteJournal)
             last_ts = Float64(r.last_ts),
             events = Int(r.events),
             last_id = Int64(r.last_id),
-            terminal_ids = r.terminal_ids === nothing ? String[] :
+            terminal_ids = _absent(r.terminal_ids) ? String[] :
                            String.(split(String(r.terminal_ids), ",")),
         ))
     end
